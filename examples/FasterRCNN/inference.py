@@ -57,7 +57,7 @@ class DefaultArgs():
             'BACKBONE.FREEZE_AT=0']
 
 
-def build_fpn_resnet_mask_rcnn_model():
+def build_r101fpn_mask_rcnn_model():
     inputs = {}
     inputs["image"] = tf.placeholder(tf.float32, (None, 3, None, None), 'image')
     num_anchors = len(cfg.RPN.ANCHOR_RATIOS)
@@ -118,18 +118,30 @@ def build_fpn_resnet_mask_rcnn_model():
         final_mask_logits = tf.gather_nd(mask_logits, indices)   # #resultx28x28
         final_mask = tf.sigmoid(final_mask_logits, name='output/masks')
         return final_boxes, final_scores, final_labels, roi_feature_maskrcnn, p23456, final_mask
-    return final_boxes, final_scores, final_labels, roi_feature_maskrcnn, p23456
+    return inputs, final_boxes, final_scores, final_labels, roi_feature_maskrcnn, p23456
 
 
-if __name__ == '__main__':
+def create_r101fpn_mask_rcnn_model_function():
     args = DefaultArgs()
     if args.config:
         cfg.update_args(args.config)
     cfg.DATA.NUM_CATEGORY = 80 # Number of MSCOCO classes without background
     finalize_configs(is_training=False)
-    build_fpn_resnet_mask_rcnn_model()
+    results = build_r101fpn_mask_rcnn_model()
     loader = get_model_loader(args.load)
-    #loader._setup_graph()
+    loader._setup_graph()
     sess = tf.Session()
     loader._run_init(sess)
+    def run_function(image, anchor_labels, anchor_boxes):
+        input_dict ={"image": image}
+        for i in range(len(anchor_labels)):
+            input_dict['anchor_labels_lvl{0}'.format(i)] = anchor_labels[i]
+        for i in range(len(anchor_boxes)):
+            input_dict['anchor_boxes_lvl{0}'.format(i)] = anchor_boxes[i]
+        return sess.run(results[1:], feed_dict=input_dict)
+    return run_function
+
+
+if __name__ == '__main__':
+    run_function = create_r101fpn_mask_rcnn_model_function()
     print("Finished building model!")
