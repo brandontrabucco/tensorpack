@@ -178,7 +178,8 @@ def generate_fpn_proposals(
     assert len(multilevel_pred_boxes) == num_lvl
     assert len(multilevel_label_logits) == num_lvl
 
-    training = get_current_tower_context().is_training
+    context = get_current_tower_context()
+    training = False if context is None else context.is_training
     all_boxes = []
     all_scores = []
     if cfg.FPN.PROPOSAL_MODE == 'Level':

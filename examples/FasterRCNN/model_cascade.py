@@ -26,7 +26,8 @@ class CascadeRCNNHead(object):
 
         self.num_cascade_stages = len(cfg.CASCADE.IOUS)
 
-        self.is_training = get_current_tower_context().is_training
+        context = get_current_tower_context()
+        self.is_training = False if context is None else context.is_training
         if self.is_training:
             @tf.custom_gradient
             def scale_gradient(x):
