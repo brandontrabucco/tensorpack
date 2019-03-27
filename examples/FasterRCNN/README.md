@@ -5,7 +5,7 @@ This section has been moved o a pip package. Install the pip package with
 cd tensorpack/examples/FasterRCNN
 pip install -e .
 ```
-Then place the checkpoint file "COCO-R101FPN-MaskRCNN-ScratchGN.npz" is a folder "tensorpack/examples/FasterRCNN/ckpts"
+Then place the checkpoint file "COCO-R101FPN-MaskRCNN-ScratchGN.npz" in a folder "tensorpack/examples/FasterRCNN/ckpts"
 
 <hr>
 
