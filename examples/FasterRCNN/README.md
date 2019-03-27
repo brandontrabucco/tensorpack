@@ -1,3 +1,14 @@
+## Edits
+
+This section has been moved o a pip package. Install the pip package with 
+```
+cd tensorpack/examples/FasterRCNN
+pip install -e .
+```
+Then place the checkpoint file "COCO-R101FPN-MaskRCNN-ScratchGN.npz" is a folder "tensorpack/examples/FasterRCNN/ckpts"
+
+<hr>
+
 # Faster R-CNN / Mask R-CNN on COCO
 This example provides a minimal (2k lines) and faithful implementation of the
 following object detection / instance segmentation papers:
