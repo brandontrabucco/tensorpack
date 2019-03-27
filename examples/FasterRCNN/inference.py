@@ -38,7 +38,7 @@ try:
     import horovod.tensorflow as hvd
 except ImportError:
     pass
-    
+
 
 class DefaultArgs():
     def __init__(self):
@@ -58,25 +58,21 @@ class DefaultArgs():
 
 
 def build_r101fpn_mask_rcnn_model():
-    inputs = {}
-    inputs["image"] = tf.placeholder(tf.float32, (None, 3, None, None), 'image')
+    image = tf.placeholder(tf.float32, (None, 3, None, None), 'image')
     num_anchors = len(cfg.RPN.ANCHOR_RATIOS)
-    for k in range(len(cfg.FPN.ANCHOR_STRIDES)):
-        inputs['anchor_labels_lvl{}'.format(k + 2)] = tf.placeholder(
-            tf.int32, (None, None, num_anchors),
-            'anchor_labels_lvl{}'.format(k + 2))
-        inputs['anchor_boxes_lvl{}'.format(k + 2)] = tf.placeholder(
-            tf.float32, (None, None, num_anchors, 4),
-            'anchor_boxes_lvl{}'.format(k + 2))
-    c2345 = resnet_fpn_backbone(inputs["image"], cfg.BACKBONE.RESNET_NUM_BLOCKS)
+    c2345 = resnet_fpn_backbone(image, cfg.BACKBONE.RESNET_NUM_BLOCKS)
     p23456 = fpn_model('fpn', c2345)
     assert len(cfg.RPN.ANCHOR_SIZES) == len(cfg.FPN.ANCHOR_STRIDES)
-    image_shape2d = tf.shape(inputs["image"])[2:]     # h,w
+    image_shape2d = tf.shape(image)[2:]     # h,w
     all_anchors_fpn = get_all_anchors_fpn()
     multilevel_anchors = [RPNAnchors(
         all_anchors_fpn[i],
-        inputs['anchor_labels_lvl{}'.format(i + 2)],
-        inputs['anchor_boxes_lvl{}'.format(i + 2)]) for i in range(len(all_anchors_fpn))]
+        tf.zeros([tf.shape(all_anchors_fpn[i])[0], 
+            tf.shape(all_anchors_fpn[i])[1], 
+            num_anchors]),
+        tf.zeros([tf.shape(all_anchors_fpn[i])[0], 
+            tf.shape(all_anchors_fpn[i])[1], 
+            num_anchors, 4])) for i in range(len(all_anchors_fpn))]
     for i, stride in enumerate(cfg.FPN.ANCHOR_STRIDES):
         with tf.name_scope('FPN_slice_lvl{}'.format(i)):
             multilevel_anchors[i] = multilevel_anchors[i].narrow_to(p23456[i])
@@ -117,8 +113,21 @@ def build_r101fpn_mask_rcnn_model():
         indices = tf.stack([tf.range(tf.size(final_labels)), tf.cast(final_labels, tf.int32) - 1], axis=1)
         final_mask_logits = tf.gather_nd(mask_logits, indices)   # #resultx28x28
         final_mask = tf.sigmoid(final_mask_logits, name='output/masks')
-        return final_boxes, final_scores, final_labels, roi_feature_maskrcnn, p23456, final_mask
-    return inputs, final_boxes, final_scores, final_labels, roi_feature_maskrcnn, p23456
+        return {
+            "image": image, 
+            "boxes": final_boxes, 
+            "scores": final_scores, 
+            "labels": final_labels, 
+            "roi": roi_feature_maskrcnn, 
+            "pyramid": p23456, 
+            "mask": final_mask}
+    return {
+        "image": image, 
+        "boxes": final_boxes, 
+        "scores": final_scores, 
+        "labels": final_labels,
+        "roi": roi_feature_maskrcnn, 
+        "pyramid": p23456}
 
 
 def create_r101fpn_mask_rcnn_model_function():
@@ -132,16 +141,14 @@ def create_r101fpn_mask_rcnn_model_function():
     loader._setup_graph()
     sess = tf.Session()
     loader._run_init(sess)
-    def run_function(image, anchor_labels, anchor_boxes):
-        input_dict ={"image": image}
-        for i in range(len(anchor_labels)):
-            input_dict['anchor_labels_lvl{0}'.format(i)] = anchor_labels[i]
-        for i in range(len(anchor_boxes)):
-            input_dict['anchor_boxes_lvl{0}'.format(i)] = anchor_boxes[i]
-        return sess.run(results[1:], feed_dict=input_dict)
-    return run_function
+    def run_function(fetch, image):
+        return sess.run(fetch, feed_dict={results["image"]: image})
+    return results, run_function
 
 
 if __name__ == '__main__':
-    run_function = create_r101fpn_mask_rcnn_model_function()
+    results, run_function = create_r101fpn_mask_rcnn_model_function()
+    img = cv2.imread(DefaultArgs().predict, cv2.IMREAD_COLOR)
+    boxes = run_function(results["boxes"], np.transpose(img[np.newaxis, ...], [0, 3, 1, 2]))
+    print(boxes.shape)
     print("Finished building model!")
