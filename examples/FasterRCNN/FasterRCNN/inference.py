@@ -115,8 +115,12 @@ def build_r101fpn_mask_rcnn_model(image):
     mask_features_2 = tf.reduce_sum(roi_feature_large * roi_masks, [2, 3]) / masks_sum
     mask_features_3 = tf.concat([tf.reduce_sum(x * roi_masks, [2, 3]) for x in roi_feature_c2345], 1) / masks_sum
     mask_features_4 = tf.concat([tf.reduce_sum(x * roi_masks, [2, 3]) for x in roi_feature_p2345], 1) / masks_sum
-    return { "image": image, "boxes": final_boxes, "masks": final_mask, 
+    return { "boxes": final_boxes, "masks": final_mask, 
         "scores": final_scores, "labels": final_labels, 
+        "roi_feature_c2345": roi_feature_c2345, 
+        "roi_feature_p2345": roi_feature_p2345,
+        "c2345": c2345, 
+        "p2345": p23456[:4],
         "region_features_1": region_features_1,
         "region_features_2": region_features_2,
         "region_features_3": region_features_3,
@@ -139,8 +143,8 @@ def create_r101fpn_mask_rcnn_model_function():
     loader._setup_graph()
     sess = tf.Session()
     loader._run_init(sess)
-    def run_function(fetch, image):
-        return sess.run(fetch, feed_dict={results["image"]: image})
+    def run_function(fetch, np_image):
+        return sess.run(fetch, feed_dict={image: np_image})
     return results, run_function
 
 
