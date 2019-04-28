@@ -102,7 +102,7 @@ def build_r101fpn_mask_rcnn_model(image):
     final_mask_logits = tf.gather_nd(mask_logits, indices)   # #resultx28x28
     final_mask = tf.sigmoid(final_mask_logits, name='output/masks')
     # Special computation for an image captioning model
-    image_sizes = tf.cast(tf.stack([tf.shape(image)[2], tf.shape(image)[3], tf.shape(image)[2], tf.shape(image)[3]]), tf.float32)
+    image_sizes = tf.cast(tf.stack([tf.shape(image)[3], tf.shape(image)[2], tf.shape(image)[3], tf.shape(image)[2]]), tf.float32)
     def corrected_roi_align(x, boxes, size):
         x_sizes = tf.cast(tf.stack([tf.shape(x)[2], tf.shape(x)[3], tf.shape(x)[2], tf.shape(x)[3]]), tf.float32)
         size_ratio = tf.expand_dims(x_sizes / image_sizes, 0)
