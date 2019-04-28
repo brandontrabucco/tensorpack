@@ -102,9 +102,14 @@ def build_r101fpn_mask_rcnn_model(image):
     final_mask_logits = tf.gather_nd(mask_logits, indices)   # #resultx28x28
     final_mask = tf.sigmoid(final_mask_logits, name='output/masks')
     # Special computation for an image captioning model
+    image_sizes = tf.cast(tf.stack([tf.shape(image)[2], tf.shape(image)[3], tf.shape(image)[2], tf.shape(image)[3]]), tf.float32)
+    def corrected_roi_align(x, boxes, size):
+        x_sizes = tf.cast(tf.stack([tf.shape(x)[2], tf.shape(x)[3], tf.shape(x)[2], tf.shape(x)[3]]), tf.float32)
+        size_ratio = tf.expand_dims(x_sizes / image_sizes, 0)
+        return roi_align(x, boxes * size_ratio, size)
     roi_feature_large = multilevel_roi_align(p23456[:4], final_boxes, 28)
-    roi_feature_c2345 = [roi_align(x, final_boxes, 28) for x in c2345]
-    roi_feature_p2345 = [roi_align(x, final_boxes, 28) for x in p23456[:4]]
+    roi_feature_c2345 = [corrected_roi_align(x, final_boxes, 28) for x in c2345]
+    roi_feature_p2345 = [corrected_roi_align(x, final_boxes, 28) for x in p23456[:4]]
     region_features_1 = tf.reduce_mean(roi_feature_c2345[-1], [2, 3])
     region_features_2 = tf.reduce_mean(roi_feature_large, [2, 3])
     region_features_3 = tf.concat([tf.reduce_mean(x, [2, 3]) for x in roi_feature_c2345], 1)
@@ -115,12 +120,8 @@ def build_r101fpn_mask_rcnn_model(image):
     mask_features_2 = tf.reduce_sum(roi_feature_large * roi_masks, [2, 3]) / masks_sum
     mask_features_3 = tf.concat([tf.reduce_sum(x * roi_masks, [2, 3]) for x in roi_feature_c2345], 1) / masks_sum
     mask_features_4 = tf.concat([tf.reduce_sum(x * roi_masks, [2, 3]) for x in roi_feature_p2345], 1) / masks_sum
-    return { "boxes": final_boxes, "masks": final_mask, 
+    return { "boxes": final_boxes / image_sizes, "masks": final_mask, 
         "scores": final_scores, "labels": final_labels, 
-        #"roi_feature_c2345": roi_feature_c2345, 
-        #"roi_feature_p2345": roi_feature_p2345,
-        #"c2345": c2345, 
-        #"p2345": p23456[:4],
         "region_features_1": region_features_1,
         "region_features_2": region_features_2,
         "region_features_3": region_features_3,
